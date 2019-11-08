@@ -1,7 +1,7 @@
-all: printContentFromRecFile
+all: rec_splitter
 
-printContentFromRecFile: example.hpp opendlv-standard-message-set.hpp printContentFromRecFile.cpp
-	g++ -std=c++14 -o printContentFromRecFile -pthread -I. printContentFromRecFile.cpp
+rec_splitter: example.hpp opendlv-standard-message-set.hpp rec_splitter.cpp
+	g++ -std=c++14 -o rec_splitter -pthread -I. -g rec_splitter.cpp
 
 example.hpp: example.odvd cluon-msc
 	./cluon-msc --cpp --out=example.hpp example.odvd
