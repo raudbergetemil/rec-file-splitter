@@ -20,38 +20,6 @@ parser.add_argument('-i', metavar='time_interval', default=1)
 args = parser.parse_args()
 
 ################################################################################
-# Extract and print an Envelope's payload based on it's dataType.
-def extractAndPrintPayload(dataType, payload):
-    # Example on how to extract a message from the OpenDLV Standard Message Set:
-    if dataType == 19:   # opendlv.proxy.GeodeticWgs84Reading
-        messageFromPayload = opendlv_standard_message_set_v0_9_9_pb2.opendlv_proxy_GeodeticWgs84Reading()
-        messageFromPayload.ParseFromString(payload)
-        print("Payload: %s" % (str(messageFromPayload)))
-
-    # Example on how to extract a message from the individual example message set:
-    if dataType == 1002: # TestMessage2
-        messageFromPayload = example_pb2.odcore_testdata_TestMessage2()
-        messageFromPayload.ParseFromString(payload)
-        print("Payload: %s" % (str(messageFromPayload)))
-
-    if dataType == 1005: # TestMessage5
-        messageFromPayload = example_pb2.odcore_testdata_TestMessage5()
-        messageFromPayload.ParseFromString(payload)
-        print("Payload: %s" % (str(messageFromPayload)))
-
-
-################################################################################
-# Print an Envelope's meta information.
-def printEnvelope(e):
-    print("Envelope ID/senderStamp = %s/%s" % (str(e.dataType), str(e.senderStamp)))
-    print(" - sent                 = %s.%s" % (str(e.sent.seconds), str(e.sent.microseconds)))
-    print(" - received             = %s.%s" % (str(e.received.seconds), str(e.received.microseconds)))
-    print(" - sample time          = %s.%s" % (str(e.sampleTimeStamp.seconds), str(e.sampleTimeStamp.microseconds)))
-    extractAndPrintPayload(e.dataType, e.serializedData)
-    print()
-
-
-################################################################################
 # Write message to file 
 def writeMessageToFile(fd, header, payload):
     fd.write(header)
@@ -135,9 +103,15 @@ def filterAllFilesInDir(dir_path, start_time_relative, time_window):
         
         # Only filter .rec-files
         if len(name_type) == 2 :
-            if name_type[1] == 'rec':
-                filterFile(e, name_type[0] + '_out.' + name_type[1], start_time_relative,\
-                    time_window)
+
+            # Check if file is already a splitted version of another
+            # then don't split
+            if name_type[0].find('_out') < 0:
+
+                # Only split files with .rec ending
+                if name_type[1] == 'rec':
+                    filterFile(e, name_type[0] + '_out.' + name_type[1], start_time_relative,\
+                        time_window)
 
 ################################################################################
 # Main entry point.
@@ -148,11 +122,16 @@ def filterAllFilesInDir(dir_path, start_time_relative, time_window):
 start_time_relative = float(args.s)
 time_window = float(args.i)
 filename_in = args.r
-if filename_in.split('.') == 2:
 
-    filename_out = filename_in.split('.')[0] + '_out.rec'
+splitted_filename = filename_in.split('.')
+
+# Only process if file is on format x.rec
+if len(splitted_filename) == 2 and splitted_filename[-1] == 'rec': 
+
+    filename_out = splitted_filename[0] + '_out.rec'
     filterFile(filename_in, filename_out, start_time_relative, time_window)
 
-elif filename_in.split('.') < 2:
+# Else interpret recording name as a directory
+else:
 
     filterAllFilesInDir(filename_in, start_time_relative, time_window)
