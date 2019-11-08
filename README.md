@@ -1,7 +1,7 @@
 Fork of https://github.com/chalmers-revere/working-with-rec-files
 
-# Examples for how to work with .rec files
+# Usage Python
+- Change working directory to where the .rec files are
+- Run `python3 rec_splitter.py -r FILENAME/DIRECTORY_NAME -s START_TIME -i TIME_INTERVAL`
 
-[Reading and extracting content from a .rec file in Python3](https://github.com/chalmers-revere/working-with-rec-files/tree/master/python3)
-
-[Reading and extracting content from a .rec file in C++14](https://github.com/chalmers-revere/working-with-rec-files/tree/master/cpp)
+# Usage C++
