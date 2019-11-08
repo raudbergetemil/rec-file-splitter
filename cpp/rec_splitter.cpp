@@ -10,6 +10,7 @@
 
 #include <string>
 #include <fstream>
+#include <dirent.h>
 
 // Function pointer declaration
 void writeMessageToFile(std::ofstream &fd, cluon::data::Envelope);
@@ -20,7 +21,7 @@ int cutFile(std::string, double, double);
 int main(int argc, char **argv) {
 
   double start_time_relative, time_interval;
-/*
+
   if (argc < 2) {
     std::cerr << "Use: " << argv[0] << " FILENAME [START_TIME] [TIME_INTERVAL]" << std::endl;
     exit(-1);
@@ -34,12 +35,12 @@ int main(int argc, char **argv) {
     std::cerr << "Use: " << argv[0] << " FILENAME [START_TIME] [TIME_INTERVAL]" << std::endl;
     exit(-1);
   }
-*/
 
   time_interval = 5.0;
   start_time_relative = 0.0;
 
-  std::string filename_in = "test.rec";
+  std::string filename_in = argv[1];
+  //std::string filename_in = "testdir";
   int type = fileType(filename_in);
 
   // If directory, cut all eligible files into the given interval
@@ -76,7 +77,6 @@ int fileType(std::string filename){
   if (current_token != NULL){
     while(current_token != NULL){
 
-      std::cout << current_token << std::endl;
       if (strcmp(current_token, "out") == 0){
         return 2;
       }
@@ -92,7 +92,7 @@ int fileType(std::string filename){
 // Cut file 'filename_in' and put output in 'filename_in_out'
 int cutFile(std::string filename_in, double start_time_relative, double time_interval){
   std::string tmpstr;
-  strcpy(&tmpstr[0], &filename_in[0]);
+  tmpstr += filename_in;
 
   std::string filename_out = strcat(strtok(&tmpstr[0], "."), "_out.rec");
   std::ofstream f_out(filename_out, std::ios::out | std::ios::binary);
@@ -147,5 +147,17 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
 }
 
 int cutDirectory(std::string dir_name, double start_time_relative, double time_interval){
-  std::cout << "NOT IMPLEMENTED" << std::endl;
+  std::string tmpstr = "";
+  tmpstr += dir_name;
+  tmpstr += '/';
+
+  if (auto dir = opendir(&dir_name[0])){
+    while (auto f = readdir(dir)){
+
+      if (fileType(f->d_name) == 1){
+        std::cout << strcat(&tmpstr[0],f->d_name) << std::endl;
+        cutFile(tmpstr + f->d_name, start_time_relative, time_interval);
+      }
+    }
+  }
 }
