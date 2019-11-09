@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
   else if(argc == 2){
     // Default values if only filename is given
     time_interval = 5.0;
-    start_time_relative = 0.0;
+    start_time_relative = 100.0;
   }
   else {
     std::cerr << "Use: " << argv[0] << " FILENAME [START_TIME] [TIME_INTERVAL]" << std::endl;
@@ -136,13 +136,12 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
         writeMessageToFile(f_out, env);
       }
       else if (timestamp > stop_time){
-        f_out.close();
         break;
       }
 
     }
   }
-
+  f_out.close();
   return 0;
 }
 
