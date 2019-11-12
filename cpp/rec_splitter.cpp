@@ -12,7 +12,7 @@
 #include <fstream>
 #include <dirent.h>
 
-// Function pointer declaration
+// Function prototypes 
 void writeMessageToFile(std::ofstream &fd, cluon::data::Envelope);
 int fileType(std::string);
 int cutDirectory(std::string, double, double);
@@ -31,13 +31,19 @@ int main(int argc, char **argv) {
     time_interval = 5.0;
     start_time_relative = 100.0;
   }
+
+  // Non-error tolerant argument parsing
+  else if(argc > 2 && argc < 5){
+    start_time_relative = std::stod(argv[2]);
+    time_interval = std::stod(argv[3]);
+  }
   else {
     std::cerr << "Use: " << argv[0] << " FILENAME [START_TIME] [TIME_INTERVAL]" << std::endl;
     exit(-1);
   }
 
-  time_interval = 5.0;
-  start_time_relative = 0.0;
+  //time_interval = 5.0;
+  //start_time_relative = 0.0;
 
   std::string filename_in = argv[1];
   //std::string filename_in = "testdir";
