@@ -12,11 +12,15 @@
 #include <fstream>
 #include <dirent.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 // Function prototypes 
 void writeMessageToFile(std::ofstream &fd, cluon::data::Envelope);
 int fileType(std::string);
 int cutDirectory(std::string, double, double);
 int cutFile(std::string, double, double);
+bool updateGPXString(std::string&, cluon::data::Envelope, double, bool);
 
 int main(int argc, char **argv) {
 
@@ -95,13 +99,55 @@ int fileType(std::string filename){
   return 0;
 }
 
+bool updateGPXString(std::string& gpxString, cluon::data::Envelope env, double timestamp, std::string file, bool firstGPS) {
+  
+  // Unpack the content...
+  auto msg = cluon::extractMessage<opendlv::logic::sensation::Geolocation>(std::move(env));
+
+  // ...and access the data fields.
+  // Create GPX file.
+  // Change into timestamp into ISO8601
+  time_t curr_time = (time_t)timestamp;
+  char buf[sizeof "2011-10-08T07:07:09Z"];
+  strftime(buf, sizeof buf, "%FT%TZ", gmtime(&curr_time));
+
+  // Fetch geolocations
+  std::string lat = std::to_string(msg.latitude());
+  std::string lon = std::to_string(msg.longitude());
+  std::string ele = std::to_string(msg.altitude());
+
+  // Build first input into GPX file.
+  // example from:  
+  // https://wiki.openstreetmap.org/wiki/GPX
+  if (firstGPS){
+    gpxString += "<?xml version=\"1.0\" encoding=\"UTF-8\"?> \n";
+    gpxString += "<gpx version=\"1.0\"> \n";
+    gpxString += "  <name>" + file + "</name>\n";
+    gpxString += "  <trk><name>" + file + "</name><number>1</number><trkseg>\n";
+    
+    firstGPS = false;
+  }
+  
+  gpxString += "    <trkpt lat=\"" + lat + "\" lon=\"" + lon + "\"><ele>" + ele + "</ele><time>" + buf + "</time></trkpt>\n";
+
+  return firstGPS;
+}
 // Cut file 'filename_in' and put output in 'filename_in_out'
 int cutFile(std::string filename_in, double start_time_relative, double time_interval){
   std::string tmpstr;
   tmpstr += filename_in;
 
-  std::string filename_out = strcat(strtok(&tmpstr[0], "."), "_out.rec");
+  
+  //std::cout << filename_in << std::endl;
+
+  std::size_t found = filename_in.find_last_of("/\\");
+  std::string path =  filename_in.substr(0,found);
+  std::string file = filename_in.substr(found+1);
+  std::string file_out = strcat(strtok(&file[0], "."), "_out.rec");
+  std::string filename_out = path + "_out/" + file_out;
+
   std::ofstream f_out(filename_out, std::ios::out | std::ios::binary);
+
 
 
   if (!f_out){
@@ -110,6 +156,7 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
   }
 
   bool firstEnvelope = true;
+  bool firstGPS = true;
   double timestamp, start_time, stop_time;
 
   // We will use cluon::Player to parse and process a .rec file.
@@ -117,7 +164,8 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
   constexpr bool THREADING{false};
   //cluon::Player player(std::string(argv[1]), AUTO_REWIND, THREADING);
   cluon::Player player(filename_in, AUTO_REWIND, THREADING);
-
+  int i = 0;
+  std::string gpxString = "";
   // Now, we simply loop over the entries.
   while (player.hasMoreData()) {
     auto entry = player.getNextEnvelopeToBeReplayed();
@@ -129,6 +177,7 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
       // Get timestamp
       timestamp = env.sampleTimeStamp().seconds() + 1e-6*env.sampleTimeStamp().microseconds();
 
+     
       // Set timestamp of first envelope to filter start time
       if (firstEnvelope){
 
@@ -139,6 +188,15 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
       }
 
       if (timestamp >= start_time && timestamp <= stop_time){
+
+        // Check whether it is of type GeodeticWgs84Reading.
+        if (timestamp >= start_time + i*time_interval/100) {
+          if (env.dataType() == opendlv::logic::sensation::Geolocation::ID()) {
+            firstGPS = updateGPXString(gpxString, env, timestamp, file, firstGPS);
+            i++;
+          }
+        }
+
         writeMessageToFile(f_out, env);
       }
       else if (timestamp > stop_time){
@@ -147,20 +205,41 @@ int cutFile(std::string filename_in, double start_time_relative, double time_int
 
     }
   }
+  if (firstGPS == false){
+    gpxString += "  </trkseg></trk>\n";
+    gpxString += "</gpx>";
+    std::string gps_out = path + "_out/gps.gpx";
+    std::ofstream f_out2(gps_out, std::ios::out | std::ios::binary);
+    f_out2.write(&gpxString[0], gpxString.length());
+    f_out2.close();
+  }
   f_out.close();
   return 0;
 }
+
 
 int cutDirectory(std::string dir_name, double start_time_relative, double time_interval){
   std::string tmpstr = "";
   tmpstr += dir_name;
   tmpstr += '/';
-
+  std::string newFolder = "";
+  newFolder += dir_name;
+  newFolder += "_out/";
+  if (mkdir(newFolder.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+  {
+      if( errno == EEXIST ) {
+        // alredy exists
+      } else {
+        // something else
+          std::cout << "cannot create sessionnamefolder error:" << strerror(errno) << std::endl;
+      }
+  }
+  
   if (auto dir = opendir(&dir_name[0])){
     while (auto f = readdir(dir)){
 
       if (fileType(f->d_name) == 1){
-        std::cout << strcat(&tmpstr[0],f->d_name) << std::endl;
+        //std::cout << strcat(&tmpstr[0],f->d_name) << std::endl;
         cutFile(tmpstr + f->d_name, start_time_relative, time_interval);
       }
     }

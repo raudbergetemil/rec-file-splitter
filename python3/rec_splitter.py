@@ -110,7 +110,7 @@ def filterAllFilesInDir(dir_path, start_time_relative, time_window):
 
                 # Only split files with .rec ending
                 if name_type[1] == 'rec':
-                    filterFile(e, name_type[0] + '_out.' + name_type[1], start_time_relative,\
+                    filterFile(dir_path + '/' + e, dir_path + name_type[0] + '_out.' + name_type[1], start_time_relative,\
                         time_window)
 
 ################################################################################
